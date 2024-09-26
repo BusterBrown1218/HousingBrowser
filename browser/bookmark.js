@@ -6,6 +6,15 @@ let bookmarking = false;
 let bookmarks;
 if (FileLib.exists("HousingBrowser", "/data/bookmarks.json")) bookmarks = JSON.parse(FileLib.read("HousingBrowser", "/data/bookmarks.json"));
 else bookmarks = [];
+let history;
+if (FileLib.exists("HousingBrowser", "/data/history.json")) history = JSON.parse(FileLib.read("HousingBrowser", "/data/history.json"));
+else history = [];
+
+register("chat", (event) => {
+    if (bookmarking) return addBookmark(event);
+    if (unbookmarking) return unbookmark(event);
+    if (nameCheck) return checkHouseName(event);
+}).setCriteria(/You are currently playing on (?:.*) (?:.*)/)
 
 // Add bookmark code
 register("command", (...args) => {
@@ -29,8 +38,7 @@ register("command", (...args) => {
     }
 }).setName("bookmark");
 
-register("chat", (event) => {
-    if (!bookmarking) return;
+function addBookmark(event) {
     let [_match, huid, name] = ChatLib.getChatMessage(event).match(/§aYou are currently playing on §e(.*) \((.*)\)/);
     event.setCanceled(true);
     huid = huid.replaceAll("-", "");
@@ -47,7 +55,7 @@ register("chat", (event) => {
         FileLib.write("HousingBrowser", "/data/bookmarks.json", JSON.stringify(bookmarks));
         ChatLib.chat(`&3[HousingBrowser] &fSuccessfully added bookmark! Use /unbookmark or /bookmark remove <housename> to remove bookmark.`);
     });
-}).setCriteria(/You are currently playing on (?:.*) (?:.*)/);
+}
 
 
 
@@ -74,8 +82,7 @@ register("command", () => {
     }
 }).setName("unbookmark");
 
-register("chat", (event) => {
-    if (!unbookmarking) return;
+function unbookmark(event) {
     let [_match, huid] = ChatLib.getChatMessage(event).match(/§aYou are currently playing on §e(.*) \((?:.*)\)/);
     event.setCanceled(true);
     huid = huid.replaceAll("-", "");
@@ -85,7 +92,7 @@ register("chat", (event) => {
     bookmarks = bookmarks.filter(n => n.huid !== huid);
     FileLib.write("HousingBrowser", "/data/bookmarks.json", JSON.stringify(bookmarks), true);
     ChatLib.chat(`&3[HousingBrowser] &fSuccessfully removed bookmark!`);
-}).setCriteria(/You are currently playing on (?:.*) (?:.*)/);
+}
 
 
 
@@ -96,7 +103,10 @@ let nameCheck = false;
 register("worldLoad", () => {
     if (!Settings.autoCheckBookmarks) return;
     let stillInWorld = true;
-    let registered = register("worldLoad", () => stillInWorld = false);
+    let registered;
+    setTimeout(() => {
+        registered = register("worldLoad", () => stillInWorld = false);
+    }, 10);
     setTimeout(() => {
         if (!stillInWorld) return registered.unregister();
         if (!TabList.getFooter()) return;
@@ -110,23 +120,36 @@ register("worldLoad", () => {
                 nameCheck = false;
             }, 1000);
         }
-    }, 200);
+    }, 1000);
 });
 
-register("chat", (event) => {
-    if (!nameCheck) return;
+function checkHouseName(event) {
     let [_match, huid, name] = ChatLib.getChatMessage(event).match(/§aYou are currently playing on §e(.*) \((.*)\)/);
     event.setCanceled(true);
     huid = huid.replaceAll("-", "");
     nameCheck = false;
 
+    // Update house history
+    let owner = ChatLib.removeFormatting(TabList.getFooter().split("\n")[1].match(/^§r§r§fYou are in §r(?:.*)§r§f, by §r§7(.*)§r/)[1]);
+    if (owner.includes(" ")) owner = owner.split(" ")[1];
+    request({
+        url: `https://api.mojang.com/users/profiles/minecraft/${owner}`,
+        method: "GET"
+    }).then(response => {
+        if (response.data.errorMessage) return;
+        history = history.filter(n => n.huid != huid && Date.now() - n.timestamp < 604800000);
+        history.unshift({ huid: huid, name: name, owner: response.data.id, timestamp: Date.now() });
+        FileLib.write("HousingBrowser", "/data/history.json", JSON.stringify(history));
+    });
+
+    // Update bookmark names
     let bookmark = bookmarks.find(n => n.huid == huid);
     if (bookmark) {
         if (bookmark.name == name) return;
         bookmark.name = name;
         FileLib.write("HousingBrowser", "/data/bookmarks.json", JSON.stringify(bookmarks));
     }
-}).setCriteria(/You are currently playing on (?:.*) (?:.*)/);
+}
 
 // Remove bookmark command
 function removeBookmark(args) {

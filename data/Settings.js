@@ -11,10 +11,10 @@ const version = JSON.parse(metadata).version;
 class Settings {
 
 	@SwitchProperty({
-		name: "Automatic Bookmark Updater",
-		description: 'Will automatically update the name of bookmarked housings',
-		category: "Bookmarking",
-		subcategory: "Bookmarking"
+		name: "Automatic House Checking",
+		description: 'Will automatically update the name of bookmarked housings, as well as keep track of House history for the Visited Housing category.',
+		category: "General",
+		subcategory: "General"
 	})
 	autoCheckBookmarks = true;
 	

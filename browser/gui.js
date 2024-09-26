@@ -11,6 +11,7 @@ const category = {
     RANDOM: { display: "Random Housing", key: 6 },
     NEWEST: { display: "Newest Housing", key: 7 },
     FRIENDS: { display: "Friends-in Housing", key: 8 },
+    HISTORY: { display: "Visited Housings", key: 9 }
 }
 
 let houses;
@@ -233,6 +234,16 @@ function sortHouses(i) {
             friendScan = 0;
             inHouses = [];
             ChatLib.command(`fl ${friendScan + 1}`);
+            break;
+        case category.HISTORY:
+            let history;
+            if (FileLib.exists("HousingBrowser", "/data/history.json")) history = JSON.parse(FileLib.read("HousingBrowser", "/data/history.json"));
+            else history = [];
+            history.forEach((house) => {
+                if (houses.some(n => n.huid == house.huid)) return;
+                houses.push(new House(house.name, house.owner, 0, "?", house.huid));
+            });
+            categorizedData[i] = [...houses].filter(n => history.some(house => n.huid == house.huid)).sort((a, b) => (history.find(n => n.huid == b.huid).timestamp - history.find(n => n.huid == a.huid).timestamp));
             break;
     }
 }

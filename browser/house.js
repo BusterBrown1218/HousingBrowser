@@ -141,6 +141,7 @@ export class House {
     }
 
     visit() {
-        ChatLib.command(`visit ${formatUuid(this.uuid)}`);
+        if (Player.getUUID() !== formatUuid(this.uuid)) ChatLib.command(`visit ${formatUuid(this.uuid)} ${ChatLib.removeFormatting(this.name)}`);
+        else ChatLib.command(`home ${ChatLib.removeFormatting(this.name)}`);
     }
 }
